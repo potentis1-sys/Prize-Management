@@ -1,11 +1,20 @@
 import React from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { Users, Calendar, Gift, Calculator, BarChart3, Flag } from 'lucide-react'; // Flag 추가
+import { Users, Calendar, Gift, Calculator, BarChart3, Flag, LogOut } from 'lucide-react'; // Flag, LogOut 추가
+import { supabase } from '../lib/supabase';
 import './Layout.css'; // 레이아웃 전용 CSS
 
 // 모바일 앱 형태의 전체 화면 레이아웃과 하단 네비게이션 바를 제공하는 컴포넌트입니다.
-function Layout() {
+function Layout({ session }) { // App.jsx에서 전달받은 session (로그인 정보)
   const location = useLocation();
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      alert('로그아웃 중 오류가 발생했습니다.');
+    }
+  };
 
   return (
     <div className="app-container">
@@ -40,10 +49,43 @@ function Layout() {
           fontSize: '1.4rem',
           fontWeight: '700', 
           letterSpacing: '-1px',
-          color: 'rgba(255, 255, 255, 0.95)'
+          color: 'rgba(255, 255, 255, 0.95)',
+          flex: 1 // 남은 공간을 모두 차지하게 하여 오른쪽 로그아웃 버튼을 밀어냄
         }}>
           고객 이벤트 관리 시스템
         </h2>
+
+        {/* 사용자 정보 및 로그아웃 버튼 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {session?.user && (
+            <span style={{ 
+              color: 'rgba(255, 255, 255, 0.9)', 
+              fontSize: '0.85rem',
+              display: 'none' // 모바일 화면이 좁을 수 있으니 이메일은 숨김 (원하면 'block'으로 변경 가능)
+            }}>
+              {session.user.email}
+            </span>
+          )}
+          <button 
+            onClick={handleLogout}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'rgba(255, 255, 255, 0.9)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '6px',
+              borderRadius: '6px'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            title="로그아웃"
+          >
+            <LogOut size={20} />
+          </button>
+        </div>
       </header>
 
       {/* 
