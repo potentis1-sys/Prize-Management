@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { Users, Calendar, Gift, Calculator, BarChart3, Flag, LogOut } from 'lucide-react'; // Flag, LogOut 추가
+import { Users, Calendar, Gift, Calculator, BarChart3, Flag, LogOut, UserCircle } from 'lucide-react'; // UserCircle 추가
 import { supabase } from '../lib/supabase';
 import './Layout.css'; // 레이아웃 전용 CSS
 
@@ -56,15 +56,29 @@ function Layout({ session }) { // App.jsx에서 전달받은 session (로그인 
         </h2>
 
         {/* 사용자 정보 및 로그아웃 버튼 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {session?.user && (
-            <span style={{ 
-              color: 'rgba(255, 255, 255, 0.9)', 
-              fontSize: '0.85rem',
-              display: 'none' // 모바일 화면이 좁을 수 있으니 이메일은 숨김 (원하면 'block'으로 변경 가능)
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '4px 10px',
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              borderRadius: '20px',
+              color: '#ffffff'
             }}>
-              {session.user.email}
-            </span>
+              <UserCircle size={18} />
+              <span style={{ 
+                fontSize: '0.8rem',
+                fontWeight: '500',
+                maxWidth: '120px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {session.user.email.split('@')[0]}
+              </span>
+            </div>
           )}
           <button 
             onClick={handleLogout}
@@ -77,7 +91,8 @@ function Layout({ session }) { // App.jsx에서 전달받은 session (로그인 
               alignItems: 'center',
               justifyContent: 'center',
               padding: '6px',
-              borderRadius: '6px'
+              borderRadius: '50%',
+              marginLeft: '4px'
             }}
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
