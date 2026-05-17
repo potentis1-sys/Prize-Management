@@ -1,0 +1,71 @@
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 70px; /* 하단 네비게이션 바 높이만큼 여백 확보 */
+  position: relative;
+}
+
+/* 스크롤바 숨기기 (모바일 앱 느낌) */
+.main-content::-webkit-scrollbar {
+  display: none;
+}
+.main-content {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 하단 네비게이션 바 스타일 */
+.bottom-nav {
+  position: fixed; /* absolute에서 fixed로 변경하여 화면 하단에 완벽히 고정 */
+  bottom: 0;
+  left: 50%; /* 모바일 최대 너비(480px) 중앙 정렬 유지 */
+  transform: translateX(-50%); /* 중앙 정렬용 */
+  width: 100%;
+  max-width: 480px; /* PC 화면에서도 모바일 비율 유지 */
+  height: 65px;
+  background: rgba(246, 239, 230, 0.95); /* Bright brown theme bg */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding-bottom: env(safe-area-inset-bottom); /* 아이폰 하단 홈 바 영역 보호 */
+  z-index: 1000;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: color var(--transition-fast), transform var(--transition-fast);
+  padding: 8px;
+  width: 25%;
+}
+
+/* 터치 시 피드백 애니메이션 */
+.nav-item:active {
+  transform: scale(0.9);
+}
+
+/* 현재 선택된 메뉴 활성화 스타일 */
+.nav-item.active {
+  color: var(--primary-color);
+}
+
+.nav-item.active svg {
+  filter: drop-shadow(0 0 8px var(--primary-glow));
+}
