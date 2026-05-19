@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { ChevronLeft, ChevronRight, ArrowRight, User, Edit3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ArrowRight, User, Edit3, Calendar } from 'lucide-react';
 
 function CalendarView() {
   const navigate = useNavigate();
@@ -92,7 +92,10 @@ function CalendarView() {
   return (
     <div className="container animate-fade-in" style={{ paddingBottom: '80px' }}>
       <header style={{ marginBottom: '20px' }}>
-        <h1 className="text-gradient" style={{ fontSize: '1.1rem' }}>내역 조회</h1>
+        <h1 className="text-gradient" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem' }}>
+          <Calendar size={22} />
+          내역 조회
+        </h1>
       </header>
 
       {/* 월간 이동 및 합계 */}
@@ -146,9 +149,9 @@ function CalendarView() {
 
       {/* 일일 상세 내역 섹션 */}
       <div className="glass-card" style={{ padding: '20px' }}>
-        <div style={{ marginBottom: '16px' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{weekDays[selectedDate.getDay()]}요일 상세</span>
+        <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
           <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일</span>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '500' }}>{weekDays[selectedDate.getDay()]}요일 상세</span>
         </div>
 
         {/* [중요] 일일 참가비 합계 강조 영역 */}
@@ -172,7 +175,16 @@ function CalendarView() {
         {/* 상세 리스트 */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {dailyEvents.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-secondary)' }}>참가 내역이 없습니다.</div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', padding: '20px 0' }}>
+              <div style={{ color: 'var(--text-secondary)' }}>참가 내역이 없습니다.</div>
+              <button 
+                onClick={() => navigate('/', { state: { selectedDate: selectedDate.toISOString() } })} 
+                className="btn btn-primary" 
+                style={{ width: 'auto', padding: '10px 24px', fontSize: '0.9rem' }}
+              >
+                신규 등록
+              </button>
+            </div>
           ) : (
             Object.values(dailyEvents.reduce((acc, e) => {
               const k = `${e.event_date}_${e.room_number}`;

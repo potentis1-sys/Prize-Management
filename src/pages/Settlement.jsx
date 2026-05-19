@@ -165,9 +165,9 @@ function Settlement() {
     setMessage({ text: '', type: '' });
 
     const cashValue = parseInt(actualCash, 10);
-    // 수정 모드일 때는 당시의 참가비를 유지하고, 새 기록일 때는 현재 누적 총합을 사용합니다.
-    const entryFeeToSave = isEditMode && historicalEntryFee !== null ? historicalEntryFee : totals.entryFees;
-    const discrepancy = cashValue - entryFeeToSave;
+    // 수정 모드일 때는 당시의 계산상 보유액을 유지하고, 새 기록일 때는 현재 계산상 전체 보유액(A-B)을 사용합니다.
+    const holdingsToSave = isEditMode && historicalEntryFee !== null ? historicalEntryFee : (totals.entryFees - totals.prizes);
+    const discrepancy = cashValue - holdingsToSave;
 
     try {
       if (isEditMode) {
@@ -175,7 +175,7 @@ function Settlement() {
           .from('settlements')
           .update({
             settlement_date: new Date(settlementDate).toISOString(),
-            calculated_total: entryFeeToSave,
+            calculated_total: holdingsToSave,
             actual_cash: cashValue,
             discrepancy: discrepancy,
             memo: memo
@@ -189,7 +189,7 @@ function Settlement() {
           .insert([
             {
               settlement_date: new Date(settlementDate).toISOString(),
-              calculated_total: entryFeeToSave,
+              calculated_total: holdingsToSave,
               actual_cash: cashValue,
               discrepancy: discrepancy,
               memo: memo
@@ -268,38 +268,101 @@ function Settlement() {
 
               return (
                 <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span>참가비 누적 총합 (A)</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.95rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>참가비 누적 총합 (A)</span>
                     <span style={{ color: 'var(--success-color)', fontWeight: 'bold' }}>{totals.entryFees.toLocaleString()} 원</span>
                   </div>
 
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.95rem' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>상금 지급 누적 총합 (B)</span>
+                    <span style={{ color: 'var(--danger-color)', fontWeight: 'bold' }}>{totals.prizes.toLocaleString()} 원</span>
+                  </div>
+
+                  {/* 점선 구분선 */}
+                  <div style={{ borderTop: '1px dashed var(--border-color)', margin: '14px 0' }}></div>
+
+                  {/* 계산상 전체 보유액 (A) - (B) */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>계산상 전체 보유액</span>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>(A) - (B)</span>
+                    </div>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                      {(totals.entryFees - totals.prizes).toLocaleString()} 원
+                    </span>
+                  </div>
+
+                  {/* 실제 보관 중인 현금 (C) */}
                   <div style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    marginBottom: '12px',
-                    color: 'var(--primary-color)',
-                    fontWeight: '500'
+                    alignItems: 'center',
+                    marginBottom: '14px',
+                    color: 'var(--primary-color)'
                   }}>
-                    <span>실제 보관 중인 현금 (B)</span>
-                    <span style={{ fontWeight: 'bold' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>실제 보관 중인 현금</span>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>(C)</span>
+                    </div>
+                    <span style={{ fontWeight: 'bold', fontSize: '1.35rem' }}>
                       {displayCash.toLocaleString()} 원
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
-                    <span>상금 지급 누적 총합 (C)</span>
-                    <span style={{ color: 'var(--danger-color)', fontWeight: 'bold' }}>{totals.prizes.toLocaleString()} 원</span>
-                  </div>
+                  {/* 현금 차액 배너 (과부족) */}
+                  {(() => {
+                    const calculatedHoldings = totals.entryFees - totals.prizes;
+                    const diff = displayCash - calculatedHoldings;
+                    const isMatch = diff === 0;
+                    const isExcess = diff > 0;
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>실제 전체 보유액</span>
-                      <span style={{ color: 'var(--text-secondary)' }}>(B) - (C)</span>
-                    </div>
-                    <span style={{ color: 'var(--primary-color)', fontWeight: 'bold', fontSize: '1.3rem' }}>
-                      {(displayCash - totals.prizes).toLocaleString()} 원
-                    </span>
-                  </div>
+                    return (
+                      <div style={{
+                        padding: '12px 16px',
+                        borderRadius: '10px',
+                        background: isMatch
+                          ? 'rgba(74, 124, 89, 0.06)'
+                          : isExcess
+                            ? 'rgba(201, 138, 68, 0.06)'
+                            : 'rgba(160, 74, 74, 0.06)',
+                        border: `1px solid ${isMatch
+                          ? 'var(--success-color)'
+                          : isExcess
+                            ? 'var(--warning-color)'
+                            : 'var(--danger-color)'
+                          }`,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginTop: '12px'
+                      }}>
+                        <span style={{
+                          fontSize: '0.85rem',
+                          fontWeight: '600',
+                          color: isMatch
+                            ? 'var(--success-color)'
+                            : isExcess
+                              ? 'var(--warning-color)'
+                              : 'var(--danger-color)'
+                        }}>
+                          계산과 실제 현금 차이 (C) - (A-B)
+                        </span>
+                        <span style={{
+                          fontWeight: 'bold',
+                          fontSize: '1.05rem',
+                          color: isMatch
+                            ? 'var(--success-color)'
+                            : isExcess
+                              ? 'var(--warning-color)'
+                              : 'var(--danger-color)'
+                        }}>
+                          {isExcess ? '+' : ''}{diff.toLocaleString()} 원
+                        </span>
+                      </div>
+                    );
+                  })()}
+
+
                 </>
               );
             })()}
@@ -336,16 +399,16 @@ function Settlement() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div className="form-group" style={{ margin: 0 }}>
-                <label style={{ fontSize: '0.82rem' }}>참가비 누적 총합 (A)</label>
+                <label style={{ fontSize: '0.82rem' }}>계산상 전체 보유액 (A-B)</label>
                 <input
                   type="text"
                   readOnly
-                  value={`${(isEditMode && historicalEntryFee !== null ? historicalEntryFee : totals.entryFees).toLocaleString()} 원`}
+                  value={`${(isEditMode && historicalEntryFee !== null ? historicalEntryFee : (totals.entryFees - totals.prizes)).toLocaleString()} 원`}
                   style={{ background: '#EBE0D3', color: 'var(--success-color)', fontWeight: 'bold' }}
                 />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
-                <label htmlFor="actualCash" style={{ fontSize: '0.82rem' }}>* 실제 보관 현금 (B)</label>
+                <label htmlFor="actualCash" style={{ fontSize: '0.82rem' }}>* 실제 보관 현금 (C)</label>
                 <input
                   type="text"
                   id="actualCash"

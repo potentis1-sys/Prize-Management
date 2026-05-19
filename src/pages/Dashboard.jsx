@@ -12,11 +12,9 @@ const getLocalDateStr = (date = new Date()) => {
 function Dashboard() {
   const [stats, setStats] = useState({ totalIncome: 0, totalPrizes: 0 });
   const [recentEvents, setRecentEvents] = useState([]);
+  const [last7DaysData, setLast7DaysData] = useState([]);
+  const [last6MonthsData, setLast6MonthsData] = useState([]); // 최근 6개월 상태 추가
   
-  // 날짜별 조회를 위한 상태 추가
-  const [selectedDate, setSelectedDate] = useState(getLocalDateStr());
-  const [dailyData, setDailyData] = useState({ events: [], prizes: [] });
-
   // 기간별 조회를 위한 상태 추가 (최근 한 달)
   const oneMonthAgo = new Date();
   oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
@@ -53,43 +51,72 @@ function Dashboard() {
 
       setStats({ totalIncome: income, totalPrizes: outcome });
       setRecentEvents(events.slice(0, 5)); // 최신 5개만 목록용으로 저장
+
+      // 최근 7일간의 참가비 내역 계산 (매일 참가비 합계)
+      const days = [];
+      const weekDays = ['일', '월', '화', '수', '목', '금', '토'];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const date = String(d.getDate()).padStart(2, '0');
+        const dayOfWeek = weekDays[d.getDay()];
+        days.push({
+          dateStr: `${year}-${month}-${date}`,
+          dayOfWeek: dayOfWeek
+        });
+      }
+
+      const chartData = days.map(dayObj => {
+        const dateStr = dayObj.dateStr;
+        const dailyEvents = events.filter(e => {
+          if (!e.event_date) return false;
+          const eDate = new Date(e.event_date);
+          const eYear = eDate.getFullYear();
+          const eMonth = String(eDate.getMonth() + 1).padStart(2, '0');
+          const eDay = String(eDate.getDate()).padStart(2, '0');
+          return `${eYear}-${eMonth}-${eDay}` === dateStr;
+        });
+        const totalFee = dailyEvents.reduce((sum, e) => sum + (e.entry_fee || 0), 0);
+        return {
+          label: `${parseInt(dateStr.split('-')[2])}일`,
+          dayOfWeek: `(${dayObj.dayOfWeek})`,
+          date: dateStr,
+          amount: totalFee
+        };
+      });
+      setLast7DaysData(chartData);
+
+      // 최근 6개월간의 참가비 내역 계산 (월별 참가비 합계 - 31일 버그 방지를 위해 매월 1일 기준 연산)
+      const months = [];
+      const today = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        months.push(`${year}-${month}`);
+      }
+
+      const monthlyChartData = months.map(monthStr => {
+        const monthlyEvents = events.filter(e => {
+          if (!e.event_date) return false;
+          const eDate = new Date(e.event_date);
+          const eYear = eDate.getFullYear();
+          const eMonth = String(eDate.getMonth() + 1).padStart(2, '0');
+          return `${eYear}-${eMonth}` === monthStr;
+        });
+        const totalFee = monthlyEvents.reduce((sum, e) => sum + (e.entry_fee || 0), 0);
+        return {
+          label: `${parseInt(monthStr.split('-')[1])}월`,
+          month: monthStr,
+          amount: totalFee
+        };
+      });
+      setLast6MonthsData(monthlyChartData);
       
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-    }
-  };
-
-  // 선택한 날짜의 데이터만 불러오는 함수
-  const fetchDailyData = async (date) => {
-    try {
-      const startOfDay = new Date(`${date}T00:00:00`).toISOString();
-      const endOfDay = new Date(`${date}T23:59:59.999`).toISOString();
-
-      // 해당 날짜 이벤트 조회 (시간 범위로 검색)
-      const { data: events, error: eventsError } = await supabase
-        .from('events')
-        .select('*')
-        .gte('event_date', startOfDay)
-        .lte('event_date', endOfDay)
-        .order('created_at', { ascending: false });
-
-      if (eventsError) throw eventsError;
-
-      // 해당 날짜 상금 조회 (버그3 수정: prize_date가 TIMESTAMPTZ이므로 범위 쿼리로 통일)
-      const startOfPrizeDay = new Date(`${date}T00:00:00`).toISOString();
-      const endOfPrizeDay = new Date(`${date}T23:59:59.999`).toISOString();
-      const { data: prizes, error: prizesError } = await supabase
-        .from('prizes')
-        .select('*')
-        .gte('prize_date', startOfPrizeDay)
-        .lte('prize_date', endOfPrizeDay)
-        .order('created_at', { ascending: false });
-
-      if (prizesError) throw prizesError;
-
-      setDailyData({ events: events || [], prizes: prizes || [] });
-    } catch (error) {
-      console.error('Error fetching daily data:', error);
     }
   };
 
@@ -121,27 +148,27 @@ function Dashboard() {
     }
   };
 
-  // 초기 데이터 및 날짜 변경 시 호출
+  // 1. 초기 데이터 로드 (컴포넌트 마운트 시 1회 실행)
   useEffect(() => {
-    const loadAll = async () => {
+    const loadInitialData = async () => {
       setLoading(true);
       await fetchDashboardData();
-      await fetchDailyData(selectedDate);
-      await fetchPeriodData(periodStartDate, periodEndDate); // 기간별 데이터 호출 추가
+      await fetchPeriodData(periodStartDate, periodEndDate);
       setLoading(false);
     };
-    loadAll();
-  }, [selectedDate, periodStartDate, periodEndDate]); // 의존성 배열에 기간 상태 추가
+    loadInitialData();
+  }, []);
+
+  // 2. 기간 날짜 변경 시 포커스 잃음 및 깜빡임 방지를 위해 백그라운드에서 데이터를 업데이트
+  useEffect(() => {
+    if (loading) return; // 초기 로딩 중에는 실행 안 함
+    fetchPeriodData(periodStartDate, periodEndDate);
+  }, [periodStartDate, periodEndDate]);
 
   // 총합계 중 수입과 지출의 비율을 계산하여 그래프(바) 길이에 활용합니다.
   const totalMoneyFlow = stats.totalIncome + stats.totalPrizes;
   const incomePercent = totalMoneyFlow > 0 ? (stats.totalIncome / totalMoneyFlow) * 100 : 0;
   const outcomePercent = totalMoneyFlow > 0 ? (stats.totalPrizes / totalMoneyFlow) * 100 : 0;
-
-  // [추가된 부분] 선택한 날짜의 일일 참가비 합계와 상금 지출 합계를 계산합니다.
-  // 배열의 reduce 함수를 사용하여 각 내역의 금액을 모두 더합니다.
-  const dailyIncome = dailyData.events.reduce((sum, item) => sum + (item.entry_fee || 0), 0);
-  const dailyOutcome = dailyData.prizes.reduce((sum, item) => sum + (item.amount || 0), 0);
 
   return (
     <div className="container animate-fade-in">
@@ -190,78 +217,174 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* 캘린더를 이용한 일별 상세 조회 카드 */}
+          {/* 최근 7일간 참가비 내역 막대그래프 카드 */}
           <div className="glass-card" style={{ marginBottom: '20px' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-              <Calendar size={16} /> 날짜별 상세 내역 조회
+              <BarChart3 size={16} /> 최근 7일간 참가비 내역
             </h3>
             
-            <div className="form-group" style={{ marginBottom: '20px' }}>
-              <input 
-                type="date" 
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                style={{ fontSize: '1rem', padding: '12px', background: '#FFFFFF', color: 'var(--text-primary)' }}
-              />
-            </div>
-
-            {/* [추가된 부분] 선택한 날짜의 합계 금액을 화면에 보여주는 영역입니다. */}
             <div style={{ 
-              marginBottom: '20px', 
-              padding: '16px',
-              background: 'rgba(103, 68, 47, 0.05)', 
-              borderRadius: '12px',
-              border: '1px solid var(--border-color)', 
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'flex-end', 
+              height: '160px', 
+              padding: '10px 0',
+              position: 'relative',
+              marginBottom: '4px'
             }}>
-              <div>
-                {/* 일일 참가비 합계 표시 */}
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>일일 참가비 합계</span>
-                <div style={{ fontWeight: 'bold', color: 'var(--primary-color)', fontSize: '1.2rem' }}>
-                  {dailyIncome.toLocaleString()}원
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                {/* 일일 상금 지출 표시 */}
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>일일 상금 지출</span>
-                <div style={{ fontWeight: 'bold', color: 'var(--danger-color)', fontSize: '1.2rem' }}>
-                  {dailyOutcome.toLocaleString()}원
-                </div>
-              </div>
-            </div>
-
-            <h4 style={{ fontSize: '0.85rem', color: 'var(--primary-color)', marginBottom: '8px' }}>참가 내역 ({dailyData.events.length}건)</h4>
-            {dailyData.events.length === 0 ? (
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>참가 내역이 없습니다.</p>
-            ) : (
-              <ul style={{ listStyle: 'none', padding: 0, marginBottom: '16px' }}>
-                {dailyData.events.map((event) => (
-                  <li key={event.id} style={{ borderBottom: '1px solid var(--border-color)', padding: '8px 0', display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                    <span>{event.room_number}방 - {event.customer_name}</span>
-                    <span style={{ color: 'var(--success-color)' }}>+{event.entry_fee.toLocaleString()}원</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <h4 style={{ fontSize: '0.85rem', color: 'var(--danger-color)', marginBottom: '8px' }}>상금 지급 내역 ({dailyData.prizes.length}건)</h4>
-            {dailyData.prizes.length === 0 ? (
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>지급 내역이 없습니다.</p>
-            ) : (
-              <ul style={{ listStyle: 'none', padding: 0 }}>
-                {dailyData.prizes.map((prize) => (
-                  <li key={prize.id} style={{ borderBottom: '1px solid var(--border-color)', padding: '8px 0', display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                    <span>
-                      {prize.room_number ? `${prize.room_number} - ` : ''}
-                      {prize.recipient_name}
+              {last7DaysData.map((d, idx) => {
+                const maxAmount = Math.max(...last7DaysData.map(item => item.amount), 0);
+                const heightPercent = maxAmount > 0 ? (d.amount / maxAmount) * 75 : 0;
+                
+                return (
+                  <div key={idx} style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    flex: 1,
+                    height: '100%',
+                    justifyContent: 'flex-end',
+                    position: 'relative'
+                  }}>
+                    {/* 상단 금액 표시 */}
+                    {d.amount > 0 && (
+                      <span style={{ 
+                        fontSize: '0.7rem', 
+                        fontWeight: 'bold', 
+                        color: 'var(--primary-color)',
+                        marginBottom: '4px',
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {d.amount >= 10000 
+                          ? `${(d.amount / 10000).toFixed(1).replace('.0', '')}만` 
+                          : `${(d.amount / 1000).toFixed(0)}천`}
+                      </span>
+                    )}
+                    
+                    {/* 막대 바 */}
+                    <div style={{ 
+                      width: '50%', 
+                      maxWidth: '24px',
+                      height: d.amount > 0 ? `${heightPercent}%` : '4px', 
+                      background: d.amount > 0 
+                        ? 'linear-gradient(180deg, var(--primary-color) 0%, var(--border-color) 100%)' 
+                        : 'rgba(103, 68, 47, 0.1)', 
+                      borderRadius: '4px 4px 0 0',
+                      transition: 'height 0.3s ease',
+                      cursor: 'pointer',
+                      position: 'relative'
+                    }}
+                    title={`${d.date}: ${d.amount.toLocaleString()}원`}
+                    />
+                    
+                    {/* 하단 구분선 */}
+                    <div style={{ width: '100%', height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
+                    
+                    {/* 날짜 및 요일 라벨 */}
+                    <span style={{ 
+                      fontSize: '0.7rem', 
+                      color: 'var(--text-secondary)',
+                      marginTop: '2px',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      lineHeight: '1.2'
+                    }}>
+                      <span>{d.label}</span>
+                      <span style={{ 
+                        fontSize: '0.65rem', 
+                        opacity: d.dayOfWeek === '(토)' || d.dayOfWeek === '(일)' ? '1' : '0.8',
+                        color: d.dayOfWeek === '(토)' ? '#2563EB' : d.dayOfWeek === '(일)' ? 'var(--danger-color)' : 'inherit',
+                        fontWeight: d.dayOfWeek === '(토)' || d.dayOfWeek === '(일)' ? '600' : 'normal'
+                      }}>
+                        {d.dayOfWeek}
+                      </span>
                     </span>
-                    <span style={{ color: 'var(--danger-color)' }}>-{prize.amount.toLocaleString()}원</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 최근 6개월간 참가비 내역 막대그래프 카드 */}
+          <div className="glass-card" style={{ marginBottom: '20px' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+              <BarChart3 size={16} /> 최근 6개월간 참가비 내역
+            </h3>
+            
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'flex-end', 
+              height: '140px', 
+              padding: '10px 0',
+              position: 'relative',
+              marginBottom: '4px'
+            }}>
+              {last6MonthsData.map((d, idx) => {
+                const maxAmount = Math.max(...last6MonthsData.map(item => item.amount), 0);
+                const heightPercent = maxAmount > 0 ? (d.amount / maxAmount) * 75 : 0;
+                
+                return (
+                  <div key={idx} style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    flex: 1,
+                    height: '100%',
+                    justifyContent: 'flex-end',
+                    position: 'relative'
+                  }}>
+                    {/* 상단 금액 표시 */}
+                    {d.amount > 0 && (
+                      <span style={{ 
+                        fontSize: '0.7rem', 
+                        fontWeight: 'bold', 
+                        color: 'var(--primary-color)',
+                        marginBottom: '4px',
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {d.amount >= 10000 
+                          ? `${(d.amount / 10000).toFixed(1).replace('.0', '')}만` 
+                          : `${(d.amount / 1000).toFixed(0)}천`}
+                      </span>
+                    )}
+                    
+                    {/* 막대 바 */}
+                    <div style={{ 
+                      width: '50%', 
+                      maxWidth: '28px',
+                      height: d.amount > 0 ? `${heightPercent}%` : '4px', 
+                      background: d.amount > 0 
+                        ? 'linear-gradient(180deg, var(--secondary-color) 0%, var(--border-color) 100%)' 
+                        : 'rgba(103, 68, 47, 0.1)', 
+                      borderRadius: '4px 4px 0 0',
+                      transition: 'height 0.3s ease',
+                      cursor: 'pointer',
+                      position: 'relative'
+                    }}
+                    title={`${d.month}: ${d.amount.toLocaleString()}원`}
+                    />
+                    
+                    {/* 하단 구분선 */}
+                    <div style={{ width: '100%', height: '1px', background: 'var(--border-color)', margin: '4px 0' }} />
+                    
+                    {/* 날짜 라벨 */}
+                    <span style={{ 
+                      fontSize: '0.7rem', 
+                      color: 'var(--text-secondary)',
+                      marginTop: '2px',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {d.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* 기간별 합계 조회 카드 */}

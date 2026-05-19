@@ -37,7 +37,7 @@ function EventEntry() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ text: '', type: '' });
 
-  // --- [추가] 편집 모드 데이터 로드 로직 ---
+  // --- [추가] 편집 모드 또는 선택한 날짜 로드 로직 ---
   useEffect(() => {
     if (location.state && location.state.editData) {
       const { editData } = location.state;
@@ -58,6 +58,16 @@ function EventEntry() {
         isScreenLogin: editData.is_screen_login || false,
         memo: editData.memo || ''
       });
+    } else if (location.state && location.state.selectedDate) {
+      // 캘린더 빈 날짜 신규 등록 클릭 시 넘어온 날짜 적용
+      const selDate = new Date(location.state.selectedDate);
+      const now = new Date();
+      selDate.setHours(now.getHours());
+      selDate.setMinutes(now.getMinutes());
+      setFormData(prev => ({
+        ...prev,
+        eventDate: getCurrentDateTimeLocal(selDate)
+      }));
     }
   }, [location.state]);
 

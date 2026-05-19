@@ -30,7 +30,7 @@
   width: 100%;
   max-width: 480px; /* PC 화면에서도 모바일 비율 유지 */
   height: 65px;
-  background: rgba(246, 239, 230, 0.95); /* Bright brown theme bg */
+  background: rgba(246, 239, 230, 0.95); /* 따뜻한 브라운 테마의 반투명 배경 */
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border-color);
@@ -39,33 +39,108 @@
   align-items: center;
   padding-bottom: env(safe-area-inset-bottom); /* 아이폰 하단 홈 바 영역 보호 */
   z-index: 1000;
+  box-shadow: 0 -4px 20px rgba(103, 68, 47, 0.06); /* 상단 경계선에 은은한 섀도우를 추가하여 구분감 제공 */
 }
 
+/* 각각의 메뉴 아이템 공통 스타일 */
 .nav-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  color: var(--text-secondary);
+  color: var(--text-secondary); /* 기본 글자색: 회갈색 */
   text-decoration: none;
-  font-size: 0.75rem;
+  font-size: 0.72rem; /* 메뉴가 5개이므로 텍스트 크기를 살짝 콤팩트하게 조정 */
   font-weight: 500;
-  transition: color var(--transition-fast), transform var(--transition-fast);
-  padding: 8px;
-  width: 25%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* 색상, 크기 전환을 부드러운 가속도로 처리 */
+  padding: 6px 0;
+  width: 20%; /* 5개 메뉴가 가로 화면을 정확히 20%씩 균등 분할하도록 수정 */
+  position: relative;
+  z-index: 1;
 }
 
-/* 터치 시 피드백 애니메이션 */
+/* 터치했을 때(누르고 있을 때) 살짝 작아지는 햅틱/피드백 효과 */
 .nav-item:active {
-  transform: scale(0.9);
+  transform: scale(0.92);
 }
 
-/* 현재 선택된 메뉴 활성화 스타일 */
+/* 네비게이션 아이템 내부 요소들의 트랜지션 효과 설정 */
+.nav-item svg {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* 아이콘이 통통 튀며 반응하도록 탄력 있는 베지에 곡선 적용 */
+  z-index: 2;
+}
+
+.nav-item span {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2;
+}
+
+/* [핵심] 현재 선택(활성화)된 메뉴의 스타일 정의 */
 .nav-item.active {
-  color: var(--primary-color);
+  color: var(--primary-color); /* 선택되었을 때 진한 브라운 색상 적용 */
 }
 
-.nav-item.active svg {
-  filter: drop-shadow(0 0 8px var(--primary-glow));
+/* 선택되었을 때 글자 스타일: 글자를 더 진하게 만들고 미세하게 키움 */
+.nav-item.active span {
+  font-weight: 700;
+  transform: scale(1.05);
 }
+
+/* 선택되었을 때 아이콘 스타일: 연하고 은은한 캡슐 위에서 잘 보이도록 원래의 브랜드 갈색(primary-color)으로 세련되게 조율 */
+.nav-item.active svg {
+  transform: translateY(-4px) scale(1.12);
+  color: var(--primary-color); /* 진한 갈색으로 돌려 완벽한 명도 대비와 가시성 유지 */
+  filter: drop-shadow(0 2px 8px var(--primary-glow)); /* 은은한 갈색 네온 효과 추가 */
+}
+
+/* [고급 효과 1] 활성화 시 아이콘 뒤에 생기는 극도로 은은하고 연한 브라운 캡슐 배경 (Pill Effect) */
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: 1px; /* 아이콘 튕김 위치에 정교한 매칭 */
+  width: 50px;
+  height: 32px;
+  background: rgba(103, 68, 47, 0.06); /* [요청 반영] 훨씬 연하고 은은해진 6% 투명도 브라운 캡슐 칩 */
+  border-radius: 16px;
+  z-index: 0;
+  animation: activePill 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; /* 가로 탄력 활성화 모션 */
+}
+
+/* [고급 효과 2] 활성화 시 메뉴 최하단에 생성되는 정교한 원형 인디케이터 (Dot Indicator) */
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0px; /* 맨 하단에 밀착 */
+  width: 4px;
+  height: 4px;
+  background-color: var(--primary-color); /* 테마 대표 갈색 */
+  border-radius: 50%; /* 완전한 원형 */
+  z-index: 2;
+  animation: activeDot 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; /* 퐁 하고 솟아오르는 애니메이션 */
+}
+
+/* 캡슐 배경이 가로로 탄력 있게 퍼지는 키프레임 정의 */
+@keyframes activePill {
+  from {
+    transform: scaleX(0.5); /* 처음에는 가로로 반만 접혀있음 */
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1); /* 부드럽게 원래 크기로 펴짐 */
+    opacity: 1;
+  }
+}
+
+/* 도트 인디케이터가 퐁 하고 생성되는 키프레임 정의 */
+@keyframes activeDot {
+  from {
+    transform: scale(0); /* 크기 0에서 출발 */
+    opacity: 0;
+  }
+  to {
+    transform: scale(1); /* 원래 크기로 나타남 */
+    opacity: 1;
+  }
+}
+
