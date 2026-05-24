@@ -164,7 +164,7 @@ function Settlement() {
     setSaving(true);
     setMessage({ text: '', type: '' });
 
-    const cashValue = parseInt(actualCash, 10);
+    const cashValue = parseInt(stripComma(actualCash), 10) || 0;
     // 수정 모드일 때는 당시의 계산상 보유액을 유지하고, 새 기록일 때는 현재 계산상 전체 보유액(A-B)을 사용합니다.
     const holdingsToSave = isEditMode && historicalEntryFee !== null ? historicalEntryFee : (totals.entryFees - totals.prizes);
     const discrepancy = cashValue - holdingsToSave;
@@ -509,11 +509,26 @@ function Settlement() {
                             실제 현금: {item.actual_cash.toLocaleString()}원
                           </span>
                         </div>
+                        {/* 당시의 과부족 차액 상태 추가 표기 */}
+                        <span style={{ 
+                          fontSize: '0.8rem', 
+                          fontWeight: 'bold', 
+                          color: item.discrepancy === 0 
+                            ? 'var(--success-color)' 
+                            : item.discrepancy > 0 
+                              ? 'var(--warning-color)' 
+                              : 'var(--danger-color)',
+                          marginLeft: '22px',
+                          marginTop: '2px',
+                          display: 'block'
+                        }}>
+                          차액: {item.discrepancy > 0 ? '+' : ''}{item.discrepancy.toLocaleString()}원
+                        </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>참가비 누적 총합</div>
-                          <div style={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--text-primary)' }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>계산상 보유액</div>
+                          <div style={{ fontWeight: 'bold', fontSize: '1.05rem', color: 'var(--text-primary)' }}>
                             {item.calculated_total.toLocaleString()}원
                           </div>
                         </div>

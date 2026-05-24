@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import './Layout.css'; // 레이아웃 전용 CSS
 
 // 모바일 앱 형태의 전체 화면 레이아웃과 하단 네비게이션 바를 제공하는 컴포넌트입니다.
-function Layout({ session }) { // App.jsx에서 전달받은 session (로그인 정보)
+function Layout({ session, profileName }) { // App.jsx에서 전달받은 session 및 profileName (한글 이름)
   const location = useLocation();
   const [showLogout, setShowLogout] = useState(false);
 
@@ -83,7 +83,7 @@ function Layout({ session }) { // App.jsx에서 전달받은 session (로그인 
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
               }}>
-                {session.user.email.split('@')[0]}
+                {profileName || session.user.email.split('@')[0]}
               </span>
             </button>
           )}
@@ -132,7 +132,7 @@ function Layout({ session }) { // App.jsx에서 전달받은 session (로그인 
         Outlet은 현재 URL에 맞는 컴포넌트(페이지)가 렌더링되는 빈 공간(구멍) 역할을 합니다.
       */}
       <main className="main-content">
-        <Outlet />
+        <Outlet context={{ session, profileName }} />
       </main>
 
       {/* 하단 네비게이션 바 */}

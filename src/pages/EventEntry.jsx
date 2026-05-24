@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'; // useEffect 추가
-import { useNavigate, useLocation } from 'react-router-dom'; // useLocation 추가
+import { useNavigate, useLocation, useOutletContext } from 'react-router-dom'; // useLocation, useOutletContext 추가
 import { supabase } from '../lib/supabase';
 import { UserPlus, Send, AlertCircle, XCircle, Edit } from 'lucide-react'; 
 
@@ -7,6 +7,7 @@ import { UserPlus, Send, AlertCircle, XCircle, Edit } from 'lucide-react';
 function EventEntry() {
   const navigate = useNavigate();
   const location = useLocation(); // 이전 화면에서 넘어온 데이터를 받기 위함
+  const { profileName } = useOutletContext(); // 상위 Outlet에서 공유된 로그인 사용자 이름
   
   // 편집 모드 여부를 판단합니다.
   const [isEditMode, setIsEditMode] = useState(false);
@@ -31,7 +32,8 @@ function EventEntry() {
     customerNames: ['', '', '', ''],
     entryFee: '',
     isScreenLogin: false,
-    memo: ''
+    memo: '',
+    creatorName: '' // 입력자 이름 저장 필드 추가
   });
 
   const [loading, setLoading] = useState(false);
@@ -54,9 +56,10 @@ function EventEntry() {
           ...editData.names,
           ...Array(Math.max(0, 4 - editData.names.length)).fill('')
         ].slice(0, 4),
-        entryFee: (editData.total_fee / editData.names.length).toString(),
+        entryFee: (editData.fee / editData.names.length).toString(),
         isScreenLogin: editData.is_screen_login || false,
-        memo: editData.memo || ''
+        memo: editData.memo || '',
+        creatorName: editData.creator_name ?? 'null' // 기존 입력자가 없으면 'null' 문자열로 세팅
       });
     } else if (location.state && location.state.selectedDate) {
       // 캘린더 빈 날짜 신규 등록 클릭 시 넘어온 날짜 적용
@@ -70,6 +73,18 @@ function EventEntry() {
       }));
     }
   }, [location.state]);
+
+  // 신규 등록 모드인 경우 로그인한 사용자 실명을 입력자 칸의 기본값으로 자동 설정
+  // 수정 모드와의 충돌을 피하기 위해 location.state에 editData가 없는 경우에만 실행합니다.
+  useEffect(() => {
+    const hasEditData = location.state && location.state.editData;
+    if (!hasEditData && profileName) {
+      setFormData(prev => ({
+        ...prev,
+        creatorName: profileName
+      }));
+    }
+  }, [profileName, location.state]);
 
   // 숫자에 콤마를 추가하는 함수
   const formatComma = (val) => {
@@ -144,14 +159,26 @@ function EventEntry() {
       }
 
       // 2. 새로운 데이터를 준비합니다.
-      const insertData = validNames.map(name => ({
-        event_date: new Date(formData.eventDate).toISOString(),
-        room_number: formData.roomNumber,
-        customer_name: name.trim(),
-        entry_fee: parseInt(formData.entryFee, 10),
-        is_screen_login: formData.isScreenLogin,
-        memo: formData.memo
-      }));
+      const insertData = validNames.map(name => {
+        let creatorValue = null;
+        if (isEditMode) {
+          // 수정 모드인 경우: 기존 입력자가 'null' 문자열이거나 빈 값이면 DB에 null로 저장하고, 그렇지 않으면 그 값을 그대로 유지
+          creatorValue = (formData.creatorName === 'null' || !formData.creatorName) ? null : formData.creatorName;
+        } else {
+          // 신규 등록 모드인 경우: 현재 로그인한 사용자의 이름을 입력자로 설정
+          creatorValue = formData.creatorName || profileName;
+        }
+
+        return {
+          event_date: new Date(formData.eventDate).toISOString(),
+          room_number: formData.roomNumber,
+          customer_name: name.trim(),
+          entry_fee: parseInt(formData.entryFee, 10),
+          is_screen_login: formData.isScreenLogin,
+          memo: formData.memo,
+          creator_name: creatorValue
+        };
+      });
 
       // 3. 데이터를 저장합니다.
       const { error } = await supabase.from('events').insert(insertData);
@@ -271,16 +298,29 @@ function EventEntry() {
           </div>
         </div>
 
-        <div className="form-group">
-          <label htmlFor="roomNumber">* 방 호수</label>
-          <input 
-            type="text" 
-            id="roomNumber" 
-            name="roomNumber" 
-            placeholder="예: 1번방" 
-            value={formData.roomNumber}
-            onChange={handleChange}
-          />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label htmlFor="roomNumber">* 방 호수</label>
+            <input 
+              type="text" 
+              id="roomNumber" 
+              name="roomNumber" 
+              placeholder="예: 1번방" 
+              value={formData.roomNumber}
+              onChange={handleChange}
+            />
+          </div>
+          <div className="form-group" style={{ margin: 0 }}>
+            <label htmlFor="creatorName">입력자</label>
+            <input 
+              type="text" 
+              id="creatorName" 
+              name="creatorName" 
+              value={isEditMode ? (formData.creatorName || 'null') : (profileName || '')}
+              readOnly
+              style={{ background: '#EBE0D3', color: 'var(--text-secondary)' }}
+            />
+          </div>
         </div>
 
         <div className="form-group">

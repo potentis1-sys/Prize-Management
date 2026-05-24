@@ -172,7 +172,7 @@ function PrizeEntry() {
             prize_date: new Date(formData.prizeDate).toISOString(),
             recipient_name: formData.recipientName.trim(),
             room_number: formData.roomNumber.trim(),
-            amount: parseInt(formData.amount, 10),
+            amount: parseInt(stripComma(formData.amount), 10) || 0,
             memo: formData.memo.trim()
           })
           .eq('id', editId);
@@ -188,7 +188,7 @@ function PrizeEntry() {
               prize_date: new Date(formData.prizeDate).toISOString(), 
               recipient_name: formData.recipientName.trim(),
               room_number: formData.roomNumber.trim(),
-              amount: parseInt(formData.amount, 10),
+              amount: parseInt(stripComma(formData.amount), 10) || 0,
               memo: formData.memo.trim()
             }
           ]);

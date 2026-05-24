@@ -8,17 +8,51 @@ import Settlement from './pages/Settlement';
 import Dashboard from './pages/Dashboard';
 import CalendarView from './pages/CalendarView';
 import Login from './pages/Login'; // 새로 만든 로그인 화면
+import NameInput from './pages/NameInput'; // 한글 이름 입력 화면
 
 // 앱의 전체 화면 경로(라우팅)를 설정하는 메인 컴포넌트입니다.
 function App() {
   const [session, setSession] = useState(null);
+  const [profileName, setProfileName] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [checkingProfile, setCheckingProfile] = useState(false);
+
+  // Supabase profiles 테이블에서 사용자 한글 이름 정보를 가져옵니다.
+  const fetchProfile = async (userId) => {
+    setCheckingProfile(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // PGRST116: 데이터가 없는 경우 (한글 이름을 아직 입력하지 않음)
+          setProfileName(null);
+        } else {
+          console.error('프로필 조회 실패:', error);
+        }
+      } else if (data) {
+        setProfileName(data.full_name);
+      }
+    } catch (err) {
+      console.error('프로필 조회 실패:', err);
+    } finally {
+      setCheckingProfile(false);
+    }
+  };
 
   useEffect(() => {
     // 1. 앱이 처음 켜질 때 현재 로그인 세션(정보) 확인
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setLoading(false);
+      if (session) {
+        fetchProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
     });
 
     // 2. 로그인 상태가 변할 때(로그인 완료, 로그아웃) 실시간으로 감지
@@ -26,13 +60,26 @@ function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session) {
+        fetchProfile(session.user.id);
+      } else {
+        setProfileName(null);
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // 아직 로그인 정보를 확인하는 중이면 로딩 화면 표시
-  if (loading) {
+  // 세션 정보 확인 완료 후 프로필 확인 중일 때도 로딩 완료를 맞춰 줌
+  useEffect(() => {
+    if (!checkingProfile && session !== null) {
+      setLoading(false);
+    }
+  }, [checkingProfile, session]);
+
+  // 아직 로그인 정보를 확인하는 중이거나 프로필 데이터를 가져오는 중이면 로딩 화면 표시
+  if (loading || checkingProfile) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: 'var(--bg-color)', color: 'var(--text-color)' }}>
         로딩 중...
@@ -45,11 +92,16 @@ function App() {
     return <Login />;
   }
 
-  // 로그인이 완료된 사용자에게만 보여줄 기존 화면들
+  // 로그인은 되었으나 한글 이름을 등록하지 않은 경우, 이름 입력창 강제 노출 (진입 차단)
+  if (!profileName) {
+    return <NameInput session={session} onSave={(name) => setProfileName(name)} />;
+  }
+
+  // 로그인이 완료되고 실명 설정까지 끝난 사용자에게만 보여줄 기존 화면들
   return (
     <Routes>
-      {/* Layout 컴포넌트에 session 정보를 전달하여, 헤더에서 프로필을 띄울 수 있게 합니다. */}
-      <Route path="/" element={<Layout session={session} />}>
+      {/* Layout 컴포넌트에 session 정보와 저장된 한글 이름(profileName)을 함께 전달합니다. */}
+      <Route path="/" element={<Layout session={session} profileName={profileName} />}>
         {/* / 주소(기본 화면)일 때 EventEntry 컴포넌트를 보여줍니다. */}
         <Route index element={<EventEntry />} />
         
